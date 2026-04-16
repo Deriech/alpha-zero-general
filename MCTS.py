@@ -49,8 +49,16 @@ class MCTS():
 
         counts = [x ** (1. / temp) for x in counts]
         counts_sum = float(sum(counts))
+
+        if counts_sum == 0:
+            # fallback: uniform over valid moves
+            valids = self.game.getValidMoves(canonicalBoard, 1)
+            probs = valids / np.sum(valids)
+            return probs
+
         probs = [x / counts_sum for x in counts]
         return probs
+    
 
     def search(self, canonicalBoard):
         """
@@ -79,7 +87,6 @@ class MCTS():
         if self.Es[s] != 0:
             # terminal node
             return -self.Es[s]
-
         if s not in self.Ps:
             # leaf node
             self.Ps[s], v = self.nnet.predict(canonicalBoard)
@@ -119,6 +126,8 @@ class MCTS():
                     best_act = a
 
         a = best_act
+        if self.game.getValidMoves(canonicalBoard, 1)[a] == 0:
+            pass
         next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
         next_s = self.game.getCanonicalForm(next_s, next_player)
 

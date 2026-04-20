@@ -6,15 +6,18 @@ class Board():
     4/8/26 - There's an issue where the new source and destination is persistant throughout nextstates
     find a way to allow for memory of path travelled, without nextstate taking the new value.
     '''
-    def __init__(self, source, destination, n=5):
+    def __init__(self, source, destination, init_board=None, n=5):
         "Set up initial board configuration."
         self.n = n
         self.source = source
         self.dest = destination
         # Create the empty board array.
-        self.pieces = [None]*self.n
-        for i in range(self.n):
-            self.pieces[i] = [0]*self.n    
+        if init_board is None:
+            self.pieces = [None]*self.n
+            for i in range(self.n):
+                self.pieces[i] = [0]*self.n    
+        else:
+            self.pieces = init_board
         self.pieces[self.source[0]][self.source[1]]=1
         self.pieces[self.dest[0]][self.dest[1]]=1
         source_index = self.coord_to_index(self.source)

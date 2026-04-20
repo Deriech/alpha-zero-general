@@ -12,7 +12,8 @@ from utils import *
 from NeuralNet import NeuralNet
 
 import argparse
-from .AlphaPDRouterNNet import AlphaPDRouterNNet_Router as onnet
+from .AlphaPDRouterNNet import AlphaPDRouterNNet_Router as router_onnet
+from .AlphaPDRouterNNet import AlphaPDRouterNNet_Cleaner as cleaner_onnet
 
 """
 NeuralNet wrapper class for the TicTacToeNNet.
@@ -30,11 +31,13 @@ args = dotdict({
     'batch_size': 64,
     'cuda': False,
     'num_channels': 512,
+    'num_nets': 3,
 })
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
-        self.nnet = onnet(game, args)
+        self.router_nnet = router_onnet(game, args)
+        self.cleaner_nnet = cleaner_onnet(game, args)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -42,11 +45,20 @@ class NNetWrapper(NeuralNet):
         """
         examples: list of examples, each example is of form (board, pi, v)
         """
-        input_boards, target_pis, target_vs = list(zip(*examples))
+        input_boards, target_pis, target_vs= list(zip(*examples))
         input_boards = np.asarray([np.moveaxis(input_boards[x],0, -1) for x in range(len(input_boards))])
         target_pis = np.asarray(target_pis)
         target_vs = np.asarray(target_vs)
-        self.nnet.model.fit(x = input_boards, y = [target_pis, target_vs], batch_size = args.batch_size, epochs = args.epochs)
+        self.router_nnet.model.fit(x = input_boards, y = [target_pis, target_vs], batch_size = args.batch_size, epochs = args.epochs)
+    
+    def train_cleaner(self, examples):
+        """
+        examples: list of examples, each example is of form (board, pi, v)
+        """
+        input_boards, target_pis = list(zip(*examples))
+        input_boards = np.asarray([np.moveaxis(input_boards[x],0, -1) for x in range(len(input_boards))])
+        target_pis = np.asarray(target_pis)
+        self.cleaner_nnet.model.fit(x = input_boards, y = target_pis, batch_size = args.batch_size, epochs = args.epochs)
 
     def predict(self, board):
         """
@@ -61,10 +73,28 @@ class NNetWrapper(NeuralNet):
         board_prep = board_prep[np.newaxis, :, :]
 
         # run
-        pi, v = self.nnet.model.predict(board_prep, verbose=False)
+        pi, v = self.router_nnet.model.predict(board_prep, verbose=False)
 
         #print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return pi[0], v[0]
+    
+    def predict_cleaner(self, board):
+        """
+        board: np array with board
+        """
+        # timing
+        start = time.time()
+
+        # preparing input
+        board_prep = pickle.loads(pickle.dumps(board, -1))
+        board_prep = np.moveaxis(board_prep,0, -1)
+        board_prep = board_prep[np.newaxis, :, :]
+
+        # run
+        pi = self.cleaner_nnet.model.predict(board_prep, verbose=False)
+
+        #print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
+        return pi[0]
 
     def save_checkpoint(self, folder='checkpoint', filename='checkpoint.pth.tar'):
         # change extension
@@ -76,7 +106,7 @@ class NNetWrapper(NeuralNet):
             os.mkdir(folder)
         else:
             print("Checkpoint Directory exists! ")
-        self.nnet.model.save_weights(filepath)
+        self.router_nnet.model.save_weights(filepath)
 
     def load_checkpoint(self, folder='checkpoint', filename='checkpoint.pth.tar'):
         # change extension
@@ -86,4 +116,4 @@ class NNetWrapper(NeuralNet):
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise ValueError("No model in path '{}'".format(filepath))
-        self.nnet.model.load_weights(filepath)
+        self.router_nnet.model.load_weights(filepath)

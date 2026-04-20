@@ -54,6 +54,8 @@ class MCTS():
             # fallback: uniform over valid moves
             valids = self.game.getValidMoves(canonicalBoard, 1)
             probs = valids / np.sum(valids)
+            if np.isnan(probs[0]):
+                pass
             return probs
 
         probs = [x / counts_sum for x in counts]

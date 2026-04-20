@@ -6,13 +6,16 @@ from .AlphaPDRouterLogic import Board
 import numpy as np
 import json
 import pickle
-from astar import AStar
+
 
 class AlphaPDRouterGame(Game):
     def __init__(self, n=5):
         self.n = n 
         self.source = None
         self.destination = None
+        self.init_board = None
+
+
 
     def index_to_coord(self, index):
         assert index <= self.n * self.n
@@ -24,13 +27,12 @@ class AlphaPDRouterGame(Game):
         return self.n*coord[0] + coord[1]
     
     
-    def getInitBoard(self):
+    def getInitBoard(self, source, destination, init_board=None):
        #figure out A* procedure
-       rng = np.random.default_rng()
-       numbers = rng.choice(self.n*self.n, size=2, replace=False)
-       self.source = self.index_to_coord(numbers[0])
-       self.destination = self.index_to_coord(numbers[1])
-       b = Board(self.source, self.destination, self.n)
+       self.source = self.index_to_coord(source)
+       self.destination = self.index_to_coord(destination)
+       self.init_board = init_board
+       b = Board(self.source, self.destination, self.init_board, self.n)
        return b.pieces
 
     def getBoardSize(self):
@@ -64,7 +66,7 @@ class AlphaPDRouterGame(Game):
             nextBoard: board after applying action
             nextPlayer: player who plays in the next turn (should be -player)
         """
-        b = Board(self.source, self.destination, self.n)
+        b = Board(self.source, self.destination, self.init_board, self.n)
         b.pieces = dict(pickle.loads(pickle.dumps(board, -1)))
         if action not in b.get_legal_moves(player):
             pass
@@ -85,7 +87,7 @@ class AlphaPDRouterGame(Game):
         """
         # return a fixed size binary vector
         valids = [0]*self.getActionSize()
-        b = Board(self.source, self.destination, self.n)
+        b = Board(self.source, self.destination, self.init_board, self.n)
         b.pieces = dict(pickle.loads(pickle.dumps(board, -1)))
         legalMoves =  b.get_legal_moves(player)
         for x in legalMoves:
@@ -103,7 +105,7 @@ class AlphaPDRouterGame(Game):
                small non-zero value for draw.
                
         """
-        b = Board(self.source, self.destination, self.n)
+        b = Board(self.source, self.destination, self.init_board, self.n)
         b.pieces = dict(pickle.loads(pickle.dumps(board, -1)))
 
         if b.is_win(player):
@@ -207,7 +209,7 @@ class AlphaPDRouterGame(Game):
 
     @staticmethod
     def display(board):
-        n = board.shape[0]
+        n = board['board'].shape[1]
         print("   ", end="")
         for y in range(n):
             print (y,"", end="")
@@ -219,11 +221,15 @@ class AlphaPDRouterGame(Game):
         for y in range(n):
             print(y, "|",end="")    # print the row #
             for x in range(n):
-                piece = board[y][x]    # get the piece to print
-                index = (y*n) + x
-                if piece == -1: print("O ",end="")
-                #elif index == board.source:  print("S ",end="")
-                #elif index == board.destination:  print("D ",end="")
+                piece = board['board'][0][y][x]    # get the piece to print
+                cur_coord = (y,x)
+                index = (y * n) + x
+                if index == board['board'][1][0][0]: 
+                    print("S ",end="")
+                elif index == board['board'][2][0][0]: print("D ",end="") 
+                elif cur_coord == board['trav_source']: print("+ ",end="")
+                elif cur_coord == board['trav_dest']: print("+ ",end="")
+                elif piece == 1: print("O ",end="")
                 else:
                     if x==n:
                         print("-",end="")
